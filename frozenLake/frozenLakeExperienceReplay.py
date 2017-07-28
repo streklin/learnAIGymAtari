@@ -119,50 +119,51 @@ def run_random_episodes():
                 break
 
 #train the simple NN to play the game.
-def train_network():
+def train_network(session):
 
-    with tf.Session() as session:
+    #train from fresh state
+    network.reset_network(session)
 
-        #train from fresh state
-        network.reset_network(session)
+    for i in range(number_of_episodes):
+        s = env.reset()
+        state = transform_state_to_tensor(s)
 
-        for i in range(number_of_episodes):
-            s = env.reset()
-            state = transform_state_to_tensor(s)
+        for m in range(moves_per_episode):
+            #predict the next action
+            action, _ = network.predict_action(state, session)
 
-            for m in range(moves_per_episode):
-                #predict the next action
-                action, qValues = network.predict_action(state, session)
+            #with probability epsilon, take a random action
+            if np.random.rand(1) < epsilon:
+                action[0] = env.action_space.sample()
 
-                #with probability epsilon, take a random action
-                if np.random.rand(1) < epsilon:
-                    action[0] = env.action_space.sample()
+            #update the environment, get next observation
+            ns, reward, done, _ = env.step(action[0])
 
-                #update the environment, get next observation
-                ns, reward, done, _ = env.step(action[0])
+            #turn the next state into a tensor
+            next_state = transform_state_to_tensor(ns)
 
-                #turn the next state into a tensor
-                next_state = transform_state_to_tensor(ns)
+            #reshape the reward
+            reward = shape_reward(reward, done)
 
-                #reshape the reward
-                reward = shape_reward(reward, done)
+            #add this move to our collection of experiences
+            experienceReplay.addEvent(next_state, state, reward, action[0])
 
-                #add this move to our collection of experiences
-                experienceReplay.addEvent(next_state, state, reward, action[0])
+            #get a training sample
+            batch = experienceReplay.getSamples(sample_size=sample_size)
 
-                #get a training sample
-                batch = experienceReplay.getSamples(sample_size=sample_size)
+            #update weights with the sample data
+            for sample in batch:
+                #get the sample states
+                
 
-                print batch
-
-                #update weights with the sample data
-
-
-                #if done, don't bother with more turns
-                if done:
-                    break
+            #if done, don't bother with more turns
+            if done:
+                break
 
 
 #prime the experience replay with some random experiences
 run_random_episodes()
-train_network()
+
+with tf.Session() as session:
+    train_network(session)
+
