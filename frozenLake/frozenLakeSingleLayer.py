@@ -12,15 +12,27 @@ def shape_reward(current_reward, current_state, done):
         return current_reward
 
     if done and current_reward == 0:
-        return -2.0
+        return -1.0
 
     return current_reward
-    #return -0.001 + (0.0005 / (16.0 - current_state))
+
+def bellmen_update(reward, gamma, maxQ, q_values, action, done):
+    # if this is not the last step, use discounted reward
+    if not done:
+        q_values[0, action[0]] = reward + gamma * maxQ
+
+    # otherwise, use the true reward
+    if done:
+        q_values[0, action[0]] = reward
+
+    return q_values
+
 
 def train_network():
     # constants
-    num_episodes = 1000
-    epsilon = 0.5
+    num_episodes = 3000
+    num_random_episodes = 500
+    epsilon = 0.1
     gamma = 0.98  # parameter for the bellmen equation
 
     tf.reset_default_graph()
@@ -36,7 +48,7 @@ def train_network():
     loss = tf.reduce_sum(tf.square(nextQ - Qout)) + 0.0001 * tf.nn.l2_loss(W1) # + 0.001 * tf.nn.l2_loss(W2)
 
     global_step = tf.Variable(0)
-    learning_rate = tf.train.exponential_decay(0.9, global_step, 100, 0.96)
+    learning_rate = tf.train.exponential_decay(0.1, global_step, 1000, 0.96)
     trainer = tf.train.AdamOptimizer(learning_rate)
     updateModel = trainer.minimize(loss, global_step=global_step)
 
@@ -47,6 +59,44 @@ def train_network():
 
         #initialize the network
         session.run(init)
+
+        #let the network watch the game being played for a little while
+        #before playing the game itself
+        for i in range(num_random_episodes):
+            state = env.reset()
+            moves = 0
+
+            while moves < 99:
+                moves += 1
+
+                # get the next predictions
+                [action, q_values] = session.run([predict, Qout], feed_dict={inputs1: np.identity(16)[state:state + 1]})
+
+                # with probability epsilon perform a random action to explore the state space
+                action[0] = env.action_space.sample()
+
+                # update the environment
+                next_state, reward, done, _ = env.step(action[0])
+
+                # shape the reward
+                reward = shape_reward(next_state, reward, done)
+
+                # get the predicted q values
+                q_prime = session.run([Qout], feed_dict={inputs1: np.identity(16)[next_state:next_state + 1]})
+
+                # bellmen update
+                maxQ = np.max(q_prime)
+                q_values = bellmen_update(reward=reward, maxQ=maxQ, q_values=q_values, done=done, action=action,
+                                          gamma=gamma)
+
+                # train the network
+                session.run([updateModel], {inputs1: np.identity(16)[state:state + 1], nextQ: q_values})
+
+                state = next_state
+
+                if done:
+                    # Reduce chance of random action as we train the model.
+                    break
 
         for i in range(num_episodes):
             state = env.reset()
@@ -73,15 +123,7 @@ def train_network():
 
                 #bellmen update
                 maxQ = np.max(q_prime)
-
-
-                #if this is not the last step, use discounted reward
-                if not done:
-                    q_values[0, action[0]] = reward + gamma * maxQ
-
-                #otherwise, use the true reward
-                if done:
-                    q_values[0, action[0]] = reward
+                q_values = bellmen_update(reward=reward, maxQ=maxQ, q_values=q_values, done=done, action=action, gamma=gamma)
 
                 #train the network
                 session.run([updateModel], {inputs1:np.identity(16)[state:state+1],nextQ:q_values})
