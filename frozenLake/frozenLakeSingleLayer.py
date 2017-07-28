@@ -1,11 +1,22 @@
-#included here for reference
 import gym
 import numpy as np
 import tensorflow as tf
 
 env = gym.make('FrozenLake-v0')
 
+#reward list, used to evaluate the agents performance
 rList = []
+
+#used for experience replay
+experiences = []
+
+def add_state_to_memory(state, reward):
+    mem = {
+        state: state,
+        reward: reward
+    }
+
+    experiences.append(mem)
 
 def shape_reward(current_reward, current_state, done):
     if current_reward == 1:
@@ -30,7 +41,7 @@ def bellmen_update(reward, gamma, maxQ, q_values, action, done):
 
 def train_network():
     # constants
-    num_episodes = 3000
+    num_episodes = 2000
     num_random_episodes = 500
     epsilon = 0.1
     gamma = 0.98  # parameter for the bellmen equation
@@ -48,7 +59,7 @@ def train_network():
     loss = tf.reduce_sum(tf.square(nextQ - Qout)) + 0.0001 * tf.nn.l2_loss(W1) # + 0.001 * tf.nn.l2_loss(W2)
 
     global_step = tf.Variable(0)
-    learning_rate = tf.train.exponential_decay(0.1, global_step, 1000, 0.96)
+    learning_rate = tf.train.exponential_decay(0.1, global_step, 100, 0.96)
     trainer = tf.train.AdamOptimizer(learning_rate)
     updateModel = trainer.minimize(loss, global_step=global_step)
 
@@ -79,7 +90,7 @@ def train_network():
                 next_state, reward, done, _ = env.step(action[0])
 
                 # shape the reward
-                reward = shape_reward(next_state, reward, done)
+                reward = shape_reward(reward, next_state, done)
 
                 # get the predicted q values
                 q_prime = session.run([Qout], feed_dict={inputs1: np.identity(16)[next_state:next_state + 1]})
@@ -118,10 +129,8 @@ def train_network():
                 #shape the reward
                 reward = shape_reward(next_state, reward, done)
 
-                #get the predicted q values
-                q_prime = session.run([Qout], feed_dict={inputs1: np.identity(16)[next_state:next_state + 1]})
-
                 #bellmen update
+                q_prime = session.run([Qout], feed_dict={inputs1: np.identity(16)[next_state:next_state + 1]})
                 maxQ = np.max(q_prime)
                 q_values = bellmen_update(reward=reward, maxQ=maxQ, q_values=q_values, done=done, action=action, gamma=gamma)
 
