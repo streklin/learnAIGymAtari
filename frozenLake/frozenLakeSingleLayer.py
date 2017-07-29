@@ -127,7 +127,7 @@ def train_network():
                 next_state, reward, done, _ = env.step(action[0])
 
                 #shape the reward
-                reward = shape_reward(next_state, reward, done)
+                reward = shape_reward(reward, next_state, done)
 
                 #bellmen update
                 q_prime = session.run([Qout], feed_dict={inputs1: np.identity(16)[next_state:next_state + 1]})
