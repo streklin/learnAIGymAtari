@@ -68,7 +68,7 @@ number_of_episodes = 20
 moves_per_episode = 99
 epsilon = 0.1
 gamma = 0.98
-sample_size = 100
+sample_size = 500
 eval_steps = 100
 
 #object for taking the most recent events
@@ -103,7 +103,7 @@ def shape_reward(reward, done):
         return -1
 
     #otherwise, return whatever the reward was (probably zero)
-    return reward
+    return -0.001 #living penalty
 
 def run_random_episodes():
     for i in range(number_of_random_episodes):
@@ -229,4 +229,20 @@ def experience_replay_alg():
 
 
 env = gym.make('FrozenLake-v0')
-experience_replay_alg()
+
+#performance of the network is a bit unstable, running multiple times
+#and averaging the result to get a good measure of the performance
+
+num_iterations = 10
+results = []
+
+for i in range(num_iterations):
+    p = experience_replay_alg()
+    results.append(p)
+
+total_score = sum(results)
+avg_score = total_score / num_iterations
+
+print "Average Score: ", avg_score
+
+
