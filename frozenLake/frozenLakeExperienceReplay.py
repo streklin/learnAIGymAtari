@@ -68,7 +68,7 @@ number_of_episodes = 20
 moves_per_episode = 99
 epsilon = 0.1
 gamma = 0.98
-sample_size = 500
+sample_size = 2000
 eval_steps = 100
 
 #object for taking the most recent events
@@ -103,7 +103,8 @@ def shape_reward(reward, done):
         return -1
 
     #otherwise, return whatever the reward was (probably zero)
-    return -0.001 #living penalty
+    #return -0.001 #living penalty
+    return reward
 
 def run_random_episodes():
     for i in range(number_of_random_episodes):
@@ -172,9 +173,11 @@ def train_network(session):
                 #get the Q values for the start state
                 action, qValues = network.predict_action(sample['prev_state'], session)
 
+                #set the action tensor to the sample action
+                action[0] = sample['action']
+
                 #get the best action for the target state
                 _, targetQ = network.predict_action(sample['state'], session)
-
                 maxQ = np.max(targetQ)
 
                 #perform a bellmen update on the Q values
