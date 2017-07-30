@@ -61,19 +61,65 @@ class SingleLayerNetwork:
     def update_network(self, input, target, session):
         _, l = session.run([self.updateModel, self.loss], feed_dict={self.state: input, self.targetOutput: target})
 
+    def set_weights(self, new_weights):
+        self.weights = tf.identity(new_weights)
+        pass
+
+class DeepQNetwork:
+    def __init__(self):
+        self.initial_learning_rate = 0.01
+        self.regularization_param = 0.001
+        self.hidden_layer_size = 16
+
+    def configure_network(self):
+        #network structure
+        self.state = tf.placeholder(shape=[1, 16], dtype=tf.float32)
+
+        self.layer_1_weights = tf.Variable(tf.random_uniform([16, self.hidden_layer_size], 0, 0.01))
+        self.hidden_layer = tf.tanh(tf.matmul(self.state, self.layer_1_weights))
+
+        self.layer_2_weights = tf.Variable(tf.random_uniform([self.hidden_layer_size, 4], 0, 0.01))
+        self.output = tf.tanh(tf.matmul(self.hidden_layer, self.layer_2_weights))
+        self.prediction = tf.argmax(self.output, 1)
+
+        self.targetOutput = tf.placeholder(shape=[1, 4], dtype=tf.float32)
+        self.loss = tf.reduce_sum(
+            tf.square(self.targetOutput - self.output)) + self.regularization_param * (tf.nn.l2_loss(self.layer_1_weights) + tf.nn.l2_loss(self.layer_2_weights))
+        self.global_step = tf.Variable(0)
+        self.learning_rate = tf.train.exponential_decay(self.initial_learning_rate, self.global_step, 100, 0.96)
+        self.trainer = tf.train.AdamOptimizer(self.learning_rate)
+        self.updateModel = self.trainer.minimize(self.loss, global_step=self.global_step)
+
+    def reset_network(self, session):
+        tf.global_variables_initializer().run()
+
+    def predict_action(self, input, session):
+        action, q_values = session.run([self.prediction, self.output], feed_dict={self.state: input})
+        return action, q_values
+
+    def update_network(self, input, target, session):
+        _, l = session.run([self.updateModel, self.loss], feed_dict={self.state: input, self.targetOutput: target})
+
+    def set_weights(self, new_weights):
+        pass
+
+
 #general constants
 number_of_random_episodes = 10000
-number_of_episodes = 10
+number_of_episodes = 15
 moves_per_episode = 99
-epsilon = 0.0
+epsilon = 0.1
 gamma = 0.99
-sample_size = 4000
+sample_size = 5000
 eval_steps = 200
 
 #object for taking the most recent events
 experienceReplay = ExperienceReplay(memory_size=100000)
 network = SingleLayerNetwork()
 network.configure_network()
+
+target_network = SingleLayerNetwork()
+target_network.configure_network()
 
 #Bellman Equation step
 def bellmen_update(reward, gamma, maxQ, q_values, action, done):
@@ -134,8 +180,16 @@ def run_random_episodes():
 #train the simple NN to play the game.
 def train_network(session):
 
+    #update the target network every C steps
+    #variable name is reference to Googles Atari playing paper in Nature
+    C = 2000
+
     #train from fresh state
     network.reset_network(session)
+
+    #track training iteration so we know when to copy the weights
+    #to the target network
+    ti = 0
 
     for i in range(number_of_episodes):
 
@@ -175,16 +229,17 @@ def train_network(session):
         #get a training sample
         batch = experienceReplay.getSamples(sample_size=sample_size)
 
+
         #update weights with the sample data
         for sample in batch:
             #get the Q values for the start state
-            action, qValues = network.predict_action(sample['prev_state'], session)
+            action, qValues = target_network.predict_action(sample['prev_state'], session)
 
             #set the action tensor to the sample action
             action[0] = sample['action']
 
             #get the best action for the target state
-            _, targetQ = network.predict_action(sample['state'], session)
+            _, targetQ = target_network.predict_action(sample['state'], session)
             maxQ = np.max(targetQ)
 
             #perform a bellmen update on the Q values
@@ -193,6 +248,14 @@ def train_network(session):
             #call the train function
             network.update_network(sample['prev_state'], qValues, session)
 
+            #update training iteration number
+            ti += 1
+
+            #when we hit C, we want to update the target network to match our current
+            #approxmimation.
+            if ti == C:
+                target_network.set_weights(network.weights)
+                ti = 0
 
 #run the agent without any random actions to see how well its learned the optimal policy
 #due to stochasticity in the environment, we can never win 100%, but a result of around
