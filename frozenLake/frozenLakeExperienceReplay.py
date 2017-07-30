@@ -60,19 +60,18 @@ class SingleLayerNetwork:
 
     def update_network(self, input, target, session):
         _, l = session.run([self.updateModel, self.loss], feed_dict={self.state: input, self.targetOutput: target})
-        #print "Loss: ", l
 
 #general constants
 number_of_random_episodes = 10000
 number_of_episodes = 10
 moves_per_episode = 99
-epsilon = 0.1
-gamma = 0.98
-sample_size = 2000
-eval_steps = 100
+epsilon = 0.0
+gamma = 0.99
+sample_size = 4000
+eval_steps = 200
 
 #object for taking the most recent events
-experienceReplay = ExperienceReplay(memory_size=10000)
+experienceReplay = ExperienceReplay(memory_size=100000)
 network = SingleLayerNetwork()
 network.configure_network()
 
@@ -102,8 +101,9 @@ def shape_reward(reward, done):
     if done and reward == 0:
         return -1
 
-    #otherwise, return whatever the reward was (probably zero)
-    return -0.001 #living penalty
+    #give the Mr. Meseeks a living penalty - it wants to die with the
+    #highest score.
+    return -0.001
 
 def run_random_episodes():
     for i in range(number_of_random_episodes):
@@ -225,14 +225,14 @@ def evaluate_performance(session, render_environment):
 
 def experience_replay_alg():
     # prime the experience replay with some random experiences
-    #experienceReplay.clear()
+    experienceReplay.clear()
 
     print "Generating Experience Replay Data"
     run_random_episodes()
 
     with tf.Session() as session:
         train_network(session)
-        performance = evaluate_performance(session, True)
+        performance = evaluate_performance(session, False)
         print "Percent of sucessful episodes: " + str(performance) + "%"
         return performance
 
@@ -251,6 +251,6 @@ for i in range(num_iterations):
 total_score = sum(results)
 avg_score = total_score / num_iterations
 
-print "Average Score: ", avg_score
+#print "Average Score: ", avg_score, "%"
 
 
