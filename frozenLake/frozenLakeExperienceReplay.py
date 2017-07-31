@@ -1,6 +1,8 @@
 import gym
 import numpy as np
 import tensorflow as tf
+import matplotlib.pyplot as plt
+
 
 class ExperienceReplay:
 
@@ -106,15 +108,15 @@ class DeepQNetwork:
 
 #general constants
 number_of_random_episodes = 10000
-number_of_episodes = 15
+number_of_episodes = 100
 moves_per_episode = 99
-epsilon = 0.1
+epsilon = 0.01
 gamma = 0.99
-sample_size = 5000
+sample_size = 500
 eval_steps = 200
 
 #object for taking the most recent events
-experienceReplay = ExperienceReplay(memory_size=100000)
+experienceReplay = ExperienceReplay(memory_size=10000)
 network = SingleLayerNetwork()
 network.configure_network()
 
@@ -177,6 +179,8 @@ def run_random_episodes():
             if done:
                 break
 
+performance_history = []
+
 #train the simple NN to play the game.
 def train_network(session):
 
@@ -201,6 +205,9 @@ def train_network(session):
 
         #track its output to keep me from getting paranoid
         print "Episode: ", i, " current performance: ", performance
+
+        #track performance history
+        performance_history.append(performance)
 
         for m in range(moves_per_episode):
             #predict the next action
@@ -254,6 +261,8 @@ def train_network(session):
             #when we hit C, we want to update the target network to match our current
             #approxmimation.
             if ti == C:
+                print "Copying weights to target network ..."
+
                 target_network.set_weights(network.weights)
                 ti = 0
 
@@ -315,5 +324,6 @@ total_score = sum(results)
 avg_score = total_score / num_iterations
 
 #print "Average Score: ", avg_score, "%"
-
+plt.plot(performance_history)
+plt.show()
 
