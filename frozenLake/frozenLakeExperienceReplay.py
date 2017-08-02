@@ -70,8 +70,8 @@ class SingleLayerNetwork:
 class DeepQNetwork:
     def __init__(self):
         self.initial_learning_rate = 0.01
-        self.regularization_param = 0.001
-        self.hidden_layer_size = 16
+        self.regularization_param = 0.0001
+        self.hidden_layer_size = 64
 
     def configure_network(self):
         #network structure
@@ -79,6 +79,8 @@ class DeepQNetwork:
 
         self.layer_1_weights = tf.Variable(tf.random_uniform([16, self.hidden_layer_size], 0, 0.01))
         self.hidden_layer = tf.tanh(tf.matmul(self.state, self.layer_1_weights))
+
+        #self.hidden_layer = tf.nn.dropout(self.hidden_layer, 0.5)
 
         self.layer_2_weights = tf.Variable(tf.random_uniform([self.hidden_layer_size, 4], 0, 0.01))
         self.output = tf.tanh(tf.matmul(self.hidden_layer, self.layer_2_weights))
@@ -88,7 +90,7 @@ class DeepQNetwork:
         self.loss = tf.reduce_sum(
             tf.square(self.targetOutput - self.output)) + self.regularization_param * (tf.nn.l2_loss(self.layer_1_weights) + tf.nn.l2_loss(self.layer_2_weights))
         self.global_step = tf.Variable(0)
-        self.learning_rate = tf.train.exponential_decay(self.initial_learning_rate, self.global_step, 100, 0.96)
+        self.learning_rate = tf.train.exponential_decay(self.initial_learning_rate, self.global_step, 500, 0.96)
         self.trainer = tf.train.AdamOptimizer(self.learning_rate)
         self.updateModel = self.trainer.minimize(self.loss, global_step=self.global_step)
 
@@ -102,25 +104,26 @@ class DeepQNetwork:
     def update_network(self, input, target, session):
         _, l = session.run([self.updateModel, self.loss], feed_dict={self.state: input, self.targetOutput: target})
 
-    def set_weights(self, new_weights):
-        pass
+    def set_weights(self, layer_1, layer_2):
+        self.layer_1_weights = tf.identity(layer_1)
+        self.layer_2_weights = tf.identity(layer_2)
 
 
 #general constants
 number_of_random_episodes = 10000
-number_of_episodes = 100
+number_of_episodes = 50
 moves_per_episode = 99
-epsilon = 0.01
+epsilon = 0.0
 gamma = 0.99
-sample_size = 500
+sample_size = 5000
 eval_steps = 200
 
 #object for taking the most recent events
 experienceReplay = ExperienceReplay(memory_size=10000)
-network = SingleLayerNetwork()
+network = DeepQNetwork()
 network.configure_network()
 
-target_network = SingleLayerNetwork()
+target_network = DeepQNetwork()
 target_network.configure_network()
 
 #Bellman Equation step
@@ -151,7 +154,7 @@ def shape_reward(reward, done):
 
     #give the Mr. Meseeks a living penalty - it wants to die with the
     #highest score.
-    return -0.001
+    return -0.01
 
 def run_random_episodes():
     for i in range(number_of_random_episodes):
@@ -186,7 +189,7 @@ def train_network(session):
 
     #update the target network every C steps
     #variable name is reference to Googles Atari playing paper in Nature
-    C = 2000
+    C = 1000
 
     #train from fresh state
     network.reset_network(session)
@@ -263,8 +266,10 @@ def train_network(session):
             if ti == C:
                 print "Copying weights to target network ..."
 
-                target_network.set_weights(network.weights)
+                target_network.set_weights(network.layer_1_weights, network.layer_2_weights)
                 ti = 0
+
+                C = C * 2
 
 #run the agent without any random actions to see how well its learned the optimal policy
 #due to stochasticity in the environment, we can never win 100%, but a result of around
