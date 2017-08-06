@@ -52,7 +52,7 @@ def transform_to_greyscale(rgb_values):
     return np.dot(rgb_values[..., :3], [0.3, 0.6, 0.1])
 
 
-def pong_cnn(image, qValues, mode):
+def pong_covnet(image, qValues, mode):
     #reshape the image tensor to be compatible with tensor flow setup
     inputs_layer = tf.reshape(image, [-1, 210, 160, 1])
 
@@ -107,27 +107,46 @@ def pong_cnn(image, qValues, mode):
     #prediction
     logits = tf.layers.dense(
         inputs=dense,
-        units=10 #to be determined based on the output size of the atari domain
+        units=6 #pong has six actions, apparently
     )
 
+    loss = None
+    train_op = None
+
+    # Calculate loss for both TRAIN and EVAL modes
+    if mode != learn.ModeKeys.INFER:
+        loss = tf.losses.mean_squared_error(
+            qValues,
+            logits
+        )
+
+    # Configure the Training Op (for TRAIN mode)
+    if mode == learn.ModeKeys.TRAIN:
+        train_op = tf.contrib.layers.optimize_loss(
+            loss=loss,
+            global_step=tf.contrib.framework.get_global_step(),
+            learning_rate=0.001,
+            optimizer="Adam")
+
+
+    #generate the next action
+    predictions = {
+        "classes": tf.argmax(
+            input=logits, axis=1
+        )
+    }
+
+    # Return a ModelFnOps object
+    return model_fn_lib.ModelFnOps(
+        mode=mode, predictions=predictions, loss=loss, train_op=train_op)
 
 def play_pong():
     memory = ExperienceReplay(memory_size=100000)
+    covnet = tf.contrib.learn.Estimator(model_fn=pong_covnet)
 
-    for i in range(1000):
-        state = env.reset()
-        state = transform_to_greyscale(state)
-
-        #shape of state tensor after transform is 210, 160
-
-        for m in range(1000):
-            action = env.action_space.sample()
-            state_1, reward, done, _ = env.step(action)
-            state_1 = transform_to_greyscale(state_1)
-            memory.addEvent(state_1, state, action, reward, done)
-            env.render()
-
+    
 
 env = gym.make('Pong-v0')
+
 
 play_pong()
