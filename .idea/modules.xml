@@ -2,6 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
+      <module fileurl="file://$USER_HOME$/ReinforcementLearn/.idea/ReinforcementLearn.iml" filepath="$USER_HOME$/ReinforcementLearn/.idea/ReinforcementLearn.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/learnAIGymAtari.iml" filepath="$PROJECT_DIR$/.idea/learnAIGymAtari.iml" />
     </modules>
   </component>
