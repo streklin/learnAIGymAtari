@@ -207,7 +207,7 @@ def train_network(session):
         state = transform_state_to_tensor(s)
 
         #track its output to keep me from getting paranoid
-        print "Episode: ", i, " current performance: ", performance
+        print("Episode: ", i, " current performance: ", performance)
 
         #track performance history
         performance_history.append(performance)
@@ -264,7 +264,6 @@ def train_network(session):
             #when we hit C, we want to update the target network to match our current
             #approxmimation.
             if ti == C:
-                print "Copying weights to target network ..."
 
                 target_network.set_weights(network.layer_1_weights, network.layer_2_weights)
                 ti = 0
@@ -304,13 +303,13 @@ def experience_replay_alg():
     # prime the experience replay with some random experiences
     experienceReplay.clear()
 
-    print "Generating Experience Replay Data"
+    print("Generating Experience Replay Data")
     run_random_episodes()
 
     with tf.Session() as session:
         train_network(session)
         performance = evaluate_performance(session, False)
-        print "Percent of sucessful episodes: " + str(performance) + "%"
+        print("Percent of sucessful episodes: " + str(performance) + "%")
         return performance
 
 

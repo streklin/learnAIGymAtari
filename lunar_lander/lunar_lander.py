@@ -4,12 +4,8 @@ import gym
 from sklearn.pipeline import  FeatureUnion
 from sklearn.preprocessing import StandardScaler
 from sklearn.kernel_approximation import RBFSampler
-# from sklearn.linear_model import SGDRegressor
-
-# from sklearn.linear_model import SGDRegressor
 
 import tensorflow as tf
-
 
 class SGDRegressor:
     def __init__(self, D):
@@ -140,10 +136,19 @@ def play_one(env, agent, eps, gamma, render=False, update=True):
 
     return totalreward
 
+def evaluate_agent(env, agent):
+    # evaluate trained performance
+    eval_games = 100
+    reward_history = []
+    for i in range(eval_games):
+        r = play_one(env, agent, 0, 0.98, False, False)
+        reward_history.append(r)
+
+    return np.mean(reward_history)
 
 env = gym.make('LunarLander-v2')
 agent = Agent(env, 0.01)
-num_games = 500
+num_games = 5000
 
 # train the agent
 for i in range(num_games):
@@ -151,15 +156,8 @@ for i in range(num_games):
     reward = play_one(env, agent, eps, 0.98, False)
     print("Iteration: {}: {}".format(i, reward))
 
-# evaluate trained performance
-eval_games = 100
-reward_history = []
-for i in range(eval_games):
-    r = play_one(env, agent, 0, 0.98, False, False)
-    reward_history.append(r)
-
-avg_return = np.mean(reward_history)
-
+avg_return = evaluate_agent(env, agent)
 print("Average Return: {}".format(avg_return))
 
+input("Press Enter to continue...")
 play_one(env, agent, 0.1, 0.99, True, False)
